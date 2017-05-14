@@ -21,6 +21,8 @@ import android.animation.AnimatorListenerAdapter
 import android.content.Context
 import android.database.ContentObserver
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.os.UserHandle
 import android.provider.Settings
 import android.view.View
@@ -46,6 +48,7 @@ import com.android.systemui.statusbar.events.shared.model.SystemEventAnimationSt
 import com.android.systemui.statusbar.events.shared.model.SystemEventAnimationState.AnimatingIn
 import com.android.systemui.statusbar.events.shared.model.SystemEventAnimationState.AnimatingOut
 import com.android.systemui.statusbar.events.shared.model.SystemEventAnimationState.RunningChipAnim
+import com.android.systemui.statusbar.logo.LogoImage;
 import com.android.systemui.statusbar.notification.icon.ui.viewbinder.ConnectedDisplaysStatusBarNotificationIconViewStore
 import com.android.systemui.statusbar.notification.promoted.PromotedNotificationUi
 import com.android.systemui.statusbar.notification.shared.NotificationsLiveDataStoreRefactor
@@ -131,6 +134,7 @@ constructor(
         val rightPaddingInit = rightClock.capturePadding()
 
         val batteryBar: BatteryBarController = view.requireViewById(R.id.battery_bar)
+        val leftLogo: LogoImage = view.requireViewById(R.id.statusbar_logo)
 
         // CollapsedStatusBarFragment doesn't need this
         if (StatusBarRootModernization.isEnabled) {
@@ -141,6 +145,7 @@ constructor(
             centerClock.hideInitially(state = View.GONE)
             rightClock.hideInitially(state = View.GONE)
             batteryBar.hideInitially()
+            leftLogo.hideInitially()
             notificationIconsArea.hideInitially()
         }
 
@@ -182,11 +187,10 @@ constructor(
                     )
 
                 val clockSettingsObserver =
-                    object : ContentObserver(null) {
+                    object : ContentObserver(Handler(Looper.getMainLooper())) {
                         override fun onChange(selfChange: Boolean, uri: Uri?) {
                             when (uri) {
                                 statusBarClockUri -> {
-                                    val current = clockSelection.value
                                     val pos =
                                         LineageSettings.System.getIntForUser(
                                             context.contentResolver,
@@ -194,8 +198,7 @@ constructor(
                                             CLOCK_POSITION_LEFT,
                                             UserHandle.USER_CURRENT
                                         )
-                                    current.copy(position = pos)
-                                    clockSelection.value = current
+                                    clockSelection.value = clockSelection.value.copy(position = pos)
                                 }
 
                                 statusBarClockChipUri -> {
@@ -514,6 +517,7 @@ constructor(
                         viewModel.isNotificationIconContainerVisible.collect {
                             notificationIconsArea.adjustVisibility(it)
                             batteryBar.adjustVisibility(it)
+                            leftLogo.adjustVisibility(it)
                         }
                     }
 
