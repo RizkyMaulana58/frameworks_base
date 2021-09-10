@@ -176,4 +176,10 @@
     <string name="mic_camera_privacy_indicator_title">Mic and camera privacy indicator</string>
     <string name="location_privacy_indicator_title">Location privacy indicator</string>
     <string name="projection_privacy_indicator_title">Media projection privacy indicator</string>
+
+    <!-- Data usage info in QS footer -->
+    <string name="usage_data">used today</string>
+    <string name="usage_data_weekly">used this week</string>
+    <string name="usage_data_default_suffix">Data</string>
+    <string name="usage_wifi_default_suffix">Wi-Fi</string>
 </resources>
