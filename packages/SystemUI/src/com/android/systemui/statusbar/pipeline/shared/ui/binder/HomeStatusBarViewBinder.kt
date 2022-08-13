@@ -18,6 +18,7 @@ package com.android.systemui.statusbar.pipeline.shared.ui.binder
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.content.Context
 import android.database.ContentObserver
 import android.net.Uri
 import android.os.UserHandle
@@ -104,6 +105,10 @@ constructor(
         val position: Int = CLOCK_POSITION_LEFT,
     )
 
+    private data class Padding(
+        val start: Int, val top: Int, val end: Int, val bottom: Int,
+    )
+
     override fun bind(
         displayId: Int,
         view: View,
@@ -120,6 +125,10 @@ constructor(
         val leftClock: Clock = view.requireViewById(R.id.clock)
         val centerClock: Clock = view.findViewById(R.id.clock_center)
         val rightClock: Clock = view.findViewById(R.id.clock_right)
+
+        val leftPaddingInit = leftClock.capturePadding()
+        val centerPaddingInit = centerClock.capturePadding()
+        val rightPaddingInit = rightClock.capturePadding()
 
         val batteryBar: BatteryBarController = view.requireViewById(R.id.battery_bar)
 
@@ -152,29 +161,54 @@ constructor(
                     )
                 )
 
+                val clockChipEnabled = MutableStateFlow(
+                    Settings.System.getIntForUser(
+                        context.contentResolver,
+                        Settings.System.STATUSBAR_CLOCK_CHIP,
+                        0,
+                        UserHandle.USER_CURRENT
+                    ) == 1
+                )
+
                 val statusBarClockUri: Uri =
                     LineageSettings.System.getUriFor(
                         LineageSettings.System.STATUS_BAR_CLOCK
                     )
 
+
+                val statusBarClockChipUri: Uri =
+                    Settings.System.getUriFor(
+                        Settings.System.STATUSBAR_CLOCK_CHIP
+                    )
+
                 val clockSettingsObserver =
                     object : ContentObserver(null) {
                         override fun onChange(selfChange: Boolean, uri: Uri?) {
-                            val current = clockSelection.value
-                            val newSelection =
-                                when (uri) {
-                                    statusBarClockUri -> {
-                                        val pos = LineageSettings.System.getIntForUser(
+                            when (uri) {
+                                statusBarClockUri -> {
+                                    val current = clockSelection.value
+                                    val pos =
+                                        LineageSettings.System.getIntForUser(
                                             context.contentResolver,
                                             LineageSettings.System.STATUS_BAR_CLOCK,
                                             CLOCK_POSITION_LEFT,
                                             UserHandle.USER_CURRENT
                                         )
-                                        current.copy(position = pos)
-                                    }
-                                    else -> current
+                                    current.copy(position = pos)
+                                    clockSelection.value = current
                                 }
-                            clockSelection.value = newSelection
+
+                                statusBarClockChipUri -> {
+                                    val enabled =
+                                        Settings.System.getIntForUser(
+                                            context.contentResolver,
+                                            Settings.System.STATUSBAR_CLOCK_CHIP,
+                                            0,
+                                            UserHandle.USER_CURRENT
+                                        ) == 1
+                                    clockChipEnabled.value = enabled
+                                }
+                            }
                         }
                     }
 
@@ -185,7 +219,15 @@ constructor(
                     UserHandle.USER_ALL
                 )
 
+                context.contentResolver.registerContentObserver(
+                    statusBarClockChipUri,
+                    false,
+                    clockSettingsObserver,
+                    UserHandle.USER_ALL
+                )
+
                 clockSettingsObserver.onChange(false, statusBarClockUri)
+                clockSettingsObserver.onChange(false, statusBarClockChipUri)
 
                 // Ensure we unregister when lifecycle scope completes
                 val job = coroutineContext[Job]
@@ -454,6 +496,21 @@ constructor(
                     }
 
                     launch {
+                        clockChipEnabled.collect { enabled ->
+                            applyClockChip(
+                                context,
+                                enabled,
+                                leftClock,
+                                centerClock,
+                                rightClock,
+                                leftPaddingInit,
+                                centerPaddingInit,
+                                rightPaddingInit
+                            )
+                        }
+                    }
+
+                    launch {
                         viewModel.isNotificationIconContainerVisible.collect {
                             notificationIconsArea.adjustVisibility(it)
                             batteryBar.adjustVisibility(it)
@@ -583,6 +640,55 @@ constructor(
             this.show(model.shouldAnimateChange)
         } else {
             this.hide(model.visibility, model.shouldAnimateChange)
+        }
+    }
+
+    private fun View.capturePadding() = Padding(paddingStart, paddingTop, paddingEnd, paddingBottom)
+
+    private fun dpToPx(context: Context, dp: Int): Int {
+        return (dp * context.resources.displayMetrics.density).toInt()
+    }
+
+    private fun applyClockChip(
+        context: Context,
+        enabled: Boolean,
+        leftClock: Clock,
+        centerClock: Clock,
+        rightClock: Clock,
+        leftPaddingInit: Padding,
+        centerPaddingInit: Padding,
+        rightPaddingInit: Padding,
+    ) {
+        if (enabled) {
+            val hPad = dpToPx(context, 10)
+            val vPad = dpToPx(context, 2)
+
+            leftClock.setBackgroundResource(R.drawable.sb_date_bg)
+            leftClock.setPaddingRelative(hPad, vPad, hPad, vPad)
+
+            centerClock.setBackgroundResource(R.drawable.sb_date_bg)
+            centerClock.setPaddingRelative(hPad, vPad, hPad, vPad)
+
+            rightClock.setBackgroundResource(R.drawable.sb_date_bg)
+            rightClock.setPaddingRelative(hPad, vPad, hPad, vPad)
+        } else {
+            leftClock.setBackgroundResource(0)
+            leftClock.setPaddingRelative(
+                leftPaddingInit.start, leftPaddingInit.top,
+                leftPaddingInit.end, leftPaddingInit.bottom
+            )
+
+            centerClock.setBackgroundResource(0)
+            centerClock.setPaddingRelative(
+                centerPaddingInit.start, centerPaddingInit.top,
+                centerPaddingInit.end, centerPaddingInit.bottom
+            )
+
+            rightClock.setBackgroundResource(0)
+            rightClock.setPaddingRelative(
+                rightPaddingInit.start, rightPaddingInit.top,
+                rightPaddingInit.end, rightPaddingInit.bottom
+            )
         }
     }
 
