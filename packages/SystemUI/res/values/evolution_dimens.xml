@@ -70,4 +70,8 @@
     <dimen name="nowplaying_icon_padding_compact">8dp</dimen>
     <dimen name="nowplaying_icon_padding_normal">16dp</dimen>
     <dimen name="nowplaying_title_artist_gap">6dp</dimen>
+
+    <!-- Weather -->  
+    <dimen name="weather_image_max_size">24dp</dimen>
+    <dimen name="weather_humidity_margin_start">16dp</dimen>
 </resources>
