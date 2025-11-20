@@ -331,13 +331,19 @@ constructor(
             }
         }
         val transitionToCookie = remember { mutableMapOf<TransitionState.Transition, Int>() }
+        
+        val lastScene = remember { mutableStateOf<SceneKey?>(null) }
+
         val sceneState =
             rememberMutableSceneTransitionLayoutState(
                 initialScene = remember { viewModel.expansionState.toIdleSceneKey() },
                 transitions =
                     transitions {
                         from(QuickQuickSettings, QuickSettings) {
-                            quickQuickSettingsToQuickSettings(viewModel::animateTilesExpansion::get)
+                            quickQuickSettingsToQuickSettings(
+                                shouldFadeQqsTiles = lastScene.value == QuickSettings,
+                                animateTilesExpansion = viewModel::animateTilesExpansion::get
+                            )
                         }
                         to(SceneKeys.EditMode) {
                             spec = tween(durationMillis = EDIT_MODE_TIME_MILLIS)
@@ -359,6 +365,10 @@ constructor(
                     )
                 },
             )
+
+        LaunchedEffect(sceneState.currentScene) {
+            lastScene.value = sceneState.currentScene
+        }
 
         LaunchedEffect(Unit) {
             launch {
